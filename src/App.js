@@ -6,7 +6,6 @@ import Subscribers from "./components/subscribers.component"
 import "bootstrap/dist/css/bootstrap.min.css";
 import 'react-notifications/lib/notifications.css';
 import EditInvoice from "./components/editInvoice.component"
-import BroadcastMessage from "./components/broadcast.component"
 
 function App() {
   return (
@@ -18,7 +17,6 @@ function App() {
       <Route path="/invoices" exact component={Home} />
       <Route path="/subscribers" exact component={Subscribers} />
       <Route path="/editInvoice/:id" component={EditInvoice}/>
-      <Route path="/broadcast" component={BroadcastMessage}/>
     </div>
   </Router>
   );

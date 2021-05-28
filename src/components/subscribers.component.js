@@ -4,13 +4,16 @@ import {
   FaTelegramPlane,
   FaUndo,
   FaRegEye,
-  FaBullhorn
+  FaBullhorn,
+  FaUsers,
+  FaTrashAlt
 } from "react-icons/fa";
 import 'react-confirm-alert/src/react-confirm-alert.css';
 import CustomMessage from "./customMessage.component";
 import Notify from "./toastEmitter.component"
 import { ToastContainer} from 'react-toastify';
 import LoaderSpinner from './loaderSpinner.component'
+import { confirmAlert } from 'react-confirm-alert'; 
 
 
 const Subscriber = props => (
@@ -39,6 +42,13 @@ const Subscriber = props => (
       >
         <FaTelegramPlane />
       </button>
+      <button
+        type="button"
+        className="btn btn-danger"
+        onClick={() => {props.confirmAlertDialog(props.currentSubscriber.username, props.currentSubscriber.userId)}}
+      >
+        <FaTrashAlt />
+      </button>
     </td>
   </tr>
 );
@@ -53,6 +63,8 @@ export default class Subscribers extends Component {
     this.handleCheckBoxChange = this.handleCheckBoxChange.bind(this);
     this.refreshPage = this.refreshPage.bind(this);
     this.removeFromSubscriberList = this.removeFromSubscriberList.bind(this);
+    this.deleteUser = this.deleteUser.bind(this)
+    this.confirmAlertDialog = this.confirmAlertDialog.bind(this)
 
     this.state = {
       subscribers: [],
@@ -64,7 +76,8 @@ export default class Subscribers extends Component {
       checked: true,
       isMulti: false,
       loading: null, 
-      customMessage: ""
+      customMessage: "", 
+      broadcastAll: false
     };
   }
 
@@ -77,13 +90,7 @@ export default class Subscribers extends Component {
       axios
         .get("https://mofunadmin-server.glitch.me/api/getSubscribers")
         .then(response => {
-          console.log(response);
-          this.setState({ subscribers: response.data,loading: false });
-          const notifer = {
-            success: true,
-            message: 'Success - Page Refreshed'
-          }
-          Notify(notifer)
+          this.setState({ subscribers: response.data,loading: false, modalMultiSubscribers:{}, multiSubscribers: {} });
         })
         .catch(error => {
           console.log(error);
@@ -99,10 +106,47 @@ export default class Subscribers extends Component {
           handleShow={this.handleShow}
           handleCheckBoxChange={this.handleCheckBoxChange}
           checked = {this.state.multiSubscribers}
+          confirmAlertDialog={this.confirmAlertDialog}
           key={currentSubscriber.userId}
         />
       );
     });
+  }
+
+  confirmAlertDialog(username, userId) {
+    confirmAlert({
+      title: `Submit to delete user ${username}`,
+      message: `Are you sure you want to do this?`,
+      buttons: [
+        {
+          label: 'Yes',
+          onClick: () => this.deleteUser(userId)
+        },
+        {
+          label: 'No',
+          onClick: () => {}
+         }
+      ]
+    });
+  };
+
+  deleteUser(userId) {
+    this.setState({loading: true}, () => {
+    axios.delete('https://mofunadmin-server.glitch.me/api/deleteUser/' + userId)
+      .then(response => {
+        if (response) {
+          this.setState({
+            subscribers: this.state.subscribers.filter(el => el.userId !== userId),
+            loading: false
+          })
+          const notifer = {
+            success: true,
+            message: 'Success - User Deleted'
+          }
+          Notify(notifer); 
+        }
+      });
+    })
   }
 
   onChangeCustomMessage(e) {
@@ -151,7 +195,11 @@ export default class Subscribers extends Component {
   removeFromSubscriberList(key) {
     let tempObj = JSON.parse(JSON.stringify(this.state.modalMultiSubscribers));
     if (Object.keys(tempObj).length == 1) {
-      Notify(`You need at least 1 recepient`);
+      const notifer = {
+        success: false,
+        message: 'You need at least 1 recepient'
+      }
+      Notify(notifer);
     } else {
       delete tempObj[key]
       this.setState({
@@ -161,8 +209,15 @@ export default class Subscribers extends Component {
   }
 
   async refreshPage() {
-    await this.fetchData()
-    Notify(`Success - Page has been refreshed`);
+    const res = await this.fetchData()
+    if (res) {
+      console.log(res)
+      const notifer = {
+        success: true,
+        message: 'Success - Custom Message Sent', 
+      }
+      Notify(notifer);
+    }
   }
 
   sendCustomMessage(){
@@ -189,12 +244,14 @@ export default class Subscribers extends Component {
           if (response) {
             this.setState({
               show: false,
-              isMulti: true,
+              isMulti: false,
               loading: false,
+              modalMultiSubscribers: {}, 
+              multiSubscribers: {}
             })
             const notifer = {
               success: true,
-              message: 'Success - Custom Message Sent'
+              message: 'Success - Broadcast message sent'
             }
             Notify(notifer)
           }
@@ -203,11 +260,36 @@ export default class Subscribers extends Component {
           console.log(err)
         })
       })
+    } else if (this.state.broadcastAll) {
+      let data = {
+        broadcastMessage: this.state.broadcastMessage
+      }
+      this.setState({loading: true}, () => {
+      axios
+      .post(`https://mofunadmin-server.glitch.me/api/broadcastMessageToAll`, data)
+      .then(response => {
+        if (response) {
+          this.setState({
+            show: false, 
+            broadcastAll: false,
+            loading: false,
+            modalMultiSubscribers: {}, 
+            multiSubscribers: {}
+          })
+        }
+        const notifier = {
+          success: true,
+          message: 'Success - Broadcast messsage sent'
+        }
+        Notify(notifier)
+      });
+    })
     } else {
       const data = {
         chat_id: this.state.userId,
         text: this.state.customMessage
       };
+      this.setState({loading: true}, () => {
       axios
         .post(
           `https://api.telegram.org/bot1793164407:AAEBo5TwuA7DtkZjLIzRzQATFqHpR3il2RM/sendMessage`,
@@ -217,14 +299,21 @@ export default class Subscribers extends Component {
           if (response) {
             this.setState({
               show: false,
-              isMulti: true 
+              loading: false,
+              modalMultiSubscribers: {}, 
+              multiSubscribers: {}
             })
-            Notify(`Success - Custom Message Sent`)
+            const notifier = {
+              success: true,
+              message: 'Success - Custom Message Sent'
+            }
+            Notify(notifier)
           }
           console.log(response.data);
         }).catch(err => {
           console.log(err)
         })
+      })
     }
 }
 
@@ -233,15 +322,32 @@ export default class Subscribers extends Component {
       this.state.loading ? <div className="spinner"><LoaderSpinner/> </div> :
       <div>
         <div className="d-flex justify-content-between">
-          <h3>All Invoices</h3>
+          <h3>Subscribers</h3>
           <div class="column">
-
+          <button
+            type="button"
+            className="btn btn-dark"
+            onClick={() => {
+              this.setState({
+                show: true, 
+                isMulti: false, 
+                broadcastAll: true,
+                username: "All Subscribers"
+              })
+            }}
+          >
+            <FaBullhorn />
+          </button>
           <button
             type="button"
             className="btn btn-dark"
             onClick={() => {
               if (Object.keys(this.state.multiSubscribers).length == 0) {
-                Notify(`You need to select at least 1 recepient`);
+                const notifier = {
+                  success: false,
+                  message: 'You need to select at least 1 recepient'
+                }
+                Notify(notifier);
               } else {
                 let tempObj = JSON.parse(JSON.stringify(this.state.multiSubscribers));
                 this.setState({
@@ -252,7 +358,7 @@ export default class Subscribers extends Component {
               }
             }}
           >
-            <FaBullhorn />
+            <FaUsers />
           </button>
           <button
             type="button"
@@ -274,8 +380,8 @@ export default class Subscribers extends Component {
                 <th className="col-md-1">Existing Student</th>
                 <th className="col-md-1">Enrolled Program</th>
                 <th className="col-md-1">Date-Time Joined</th>
-                <th className="col-md-1">Actions</th>
                 <th className="col-md-1">Select</th>
+                <th className="col-md-1">Actions</th>
               </tr>
             </thead>
             <tbody>{this.subscribersList()}</tbody>

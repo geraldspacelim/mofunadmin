@@ -95,7 +95,6 @@ export default class Home extends Component {
       axios
       .get("https://mofunadmin-server.glitch.me/api/getInvoices")
       .then(response => {
-        console.log(response);
         this.setState({ invoices: response.data , loading: false});
       })
       .catch(error => {
@@ -126,23 +125,28 @@ export default class Home extends Component {
       orderId: props.currentInvoice.orderId,
       orderStatus: orderStatus
     };
+    this.setState({loading: true}, () => {
     axios
       .post("https://mofunadmin-server.glitch.me/api/updateOrderStatus", data)
-      .then(response => {
-        if (response) {
-          this.updateCount(props.currentInvoice.classPayload);
-          this.sendUpdateNotification(props, orderStatus)
+      .then(async() => {
+          await this.updateCount(props.currentInvoice.classPayload);
+          await this.sendUpdateNotification(props, orderStatus)
           const objIndex = this.state.invoices.findIndex(
             obj => obj.orderId === props.currentInvoice.orderId
           );
           let tempInvoices = [...this.state.invoices];
           tempInvoices[objIndex].orderStatus = orderStatus;
           this.setState({
-            invoices: tempInvoices
+            invoices: tempInvoices,
+            loading: false
           });
-          Notify(`Success - Changed to ${orderStatus[0].toUpperCase() + orderStatus.slice(1)}`)
-        }
+          const notifer = {
+            success: true,
+            message: `Success - Changed to ${orderStatus[0].toUpperCase() + orderStatus.slice(1)}`
+          }
+          Notify(notifer)
       });
+    })
   }
 
   updateCount(classPayload) {
@@ -158,7 +162,6 @@ export default class Home extends Component {
 
   sendUpdateNotification(props, orderStatus) {
     let teleNotification;
-    console.log(props.currentInvoice.classPayload);
     if (
       /HC/.test(props.currentInvoice.classPayload) &&
       orderStatus === "approved"
@@ -186,8 +189,7 @@ export default class Home extends Component {
         `https://api.telegram.org/bot1793164407:AAEBo5TwuA7DtkZjLIzRzQATFqHpR3il2RM/sendMessage`,
         data
       )
-      .then(response => {
-        console.log(response.data);
+      .then((_) => {
       });
   }
 
@@ -235,6 +237,7 @@ export default class Home extends Component {
       chat_id: this.state.userId,
       text: this.state.customMessage
     };
+    this.setState({loading: true}, () => {
     axios
       .post(
         `https://api.telegram.org/bot1793164407:AAEBo5TwuA7DtkZjLIzRzQATFqHpR3il2RM/sendMessage`,
@@ -243,14 +246,20 @@ export default class Home extends Component {
       .then(response => {
         if (response) {
           this.setState({
-            show: false
+            show: false,
+            loading: false
           })
-          Notify(`Success - Custom Message Sent`)
+          const notifer = {
+            success: true,
+            message: `Success - Custom message sent`
+          }
+          Notify(notifer)
         }
         console.log(response.data);
       }).catch(err => {
         console.log(err)
       })
+    })
 }
 
   render() {

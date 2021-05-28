@@ -25,7 +25,7 @@ const CustomMessage = (props) => {
                     <div className="badgeList">
                         {
                             Object.keys(props.modalMultiSubscribers).map((key, index) => ( 
-                                <button type="button" class="btn btn-primary" key={key} onClick={() => props.removeFromSubscriberList(key)}>
+                                <button type="button" className="btn btn-primary modalButton" key={key} onClick={() => props.removeFromSubscriberList(key)}>
                                     {props.modalMultiSubscribers[key].username} <span className="badge alert-primary">x</span>
                                 </button>
                             ))
